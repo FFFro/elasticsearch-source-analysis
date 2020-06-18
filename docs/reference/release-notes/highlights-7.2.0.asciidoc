@@ -1,0 +1,23 @@
+[[release-highlights-7.2.0]]
+== 7.2.0 release highlights
+++++
+<titleabbrev>7.2.0</titleabbrev>
+++++
+
+coming[7.2.0]
+
+//NOTE: The notable-highlights tagged regions are re-used in the
+//Installation and Upgrade Guide
+
+// tag::notable-highlights[]
+[discrete]
+==== {dataframes-cap}
+
+beta[] You can now transform your data with
+{stack-ov}/ml-dataframes.html[data frames]. There is a new {kib} wizard that
+guides you through the process of creating a {dataframe-transform} to pivot and
+summarize your data and store it in a new index. Alternatively, you can use
+{ref}/data-frame-apis.html[{dataframe} APIs] to preview, create, and manage
+the transforms.
+
+// end::notable-highlights[]
