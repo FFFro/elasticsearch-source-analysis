@@ -151,43 +151,57 @@ public class TransportBulkAction extends HandledTransportAction<BulkRequest, Bul
 
     @Override
     protected void doExecute(Task task, BulkRequest bulkRequest, ActionListener<BulkResponse> listener) {
+        //获取一个不知道怎么实现的时间，这个接口好多实现
         final long startTime = relativeTime();
+        //定义了一个原子读取写入的数组（可以存空值？）
         final AtomicArray<BulkItemResponse> responses = new AtomicArray<>(bulkRequest.requests.size());
-
+        //请求是否使用pipeline
         boolean hasIndexRequestsWithPipelines = false;
+        //获取集群的状态 metaData(需要看clusterService的实现)
         final MetaData metaData = clusterService.state().getMetaData();
+        //看样子是获取了所有的索引信息，实现了一个map，存放所有索引信息
         ImmutableOpenMap<String, IndexMetaData> indicesMetaData = metaData.indices();
+        //开始遍历bulk中的请求
         for (DocWriteRequest<?> actionRequest : bulkRequest.requests) {
+            //调用上面的方法把请求都转换成IndexRequest
             IndexRequest indexRequest = getIndexWriteRequest(actionRequest);
             if (indexRequest != null) {
                 // get pipeline from request
                 String pipeline = indexRequest.getPipeline();
+                //如果没有指定pipeline的话
                 if (pipeline == null) {
                     // start to look for default pipeline via settings found in the index meta data
+                    //查看索引有没有设置默认的pipeline
                     IndexMetaData indexMetaData = indicesMetaData.get(actionRequest.index());
                     if (indexMetaData == null && indexRequest.index() != null) {
                         // if the write request if through an alias use the write index's meta data
+                        //看是不是使用了别名
                         AliasOrIndex indexOrAlias = metaData.getAliasAndIndexLookup().get(indexRequest.index());
                         if (indexOrAlias != null && indexOrAlias.isAlias()) {
                             AliasOrIndex.Alias alias = (AliasOrIndex.Alias) indexOrAlias;
+                            //如果是使用了别名，则使用别名的索引信息
                             indexMetaData = alias.getWriteIndex();
                         }
                     }
                     if (indexMetaData != null) {
                         // Find the the default pipeline if one is defined from and existing index.
+                        //获取默认的pipeline
                         String defaultPipeline = IndexSettings.DEFAULT_PIPELINE.get(indexMetaData.getSettings());
                         indexRequest.setPipeline(defaultPipeline);
+                        //判断是否pipeline是_none的
                         if (IngestService.NOOP_PIPELINE_NAME.equals(defaultPipeline) == false) {
                             hasIndexRequestsWithPipelines = true;
                         }
                     } else if (indexRequest.index() != null) {
                         // No index exists yet (and is valid request), so matching index templates to look for a default pipeline
+                        //没有索引符合查询请求，所以去找template 看有没有符合的索引名称的模板，看是否有符合的默认pipeline
                         List<IndexTemplateMetaData> templates = MetaDataIndexTemplateService.findTemplates(metaData, indexRequest.index());
                         assert (templates != null);
                         String defaultPipeline = IngestService.NOOP_PIPELINE_NAME;
                         // order of templates are highest order first, break if we find a default_pipeline
                         for (IndexTemplateMetaData template : templates) {
                             final Settings settings = template.settings();
+                            //如果存在默认模板，则使用默认的模板，结束循环
                             if (IndexSettings.DEFAULT_PIPELINE.exists(settings)) {
                                 defaultPipeline = IndexSettings.DEFAULT_PIPELINE.get(settings);
                                 break;
@@ -204,14 +218,19 @@ public class TransportBulkAction extends HandledTransportAction<BulkRequest, Bul
             }
         }
 
+        //上面判断完是否有pipeline，然后在这里进行执行
+        //只有bulk请求中有一个请求有pipeline，就会走下面
         if (hasIndexRequestsWithPipelines) {
             // this method (doExecute) will be called again, but with the bulk requests updated from the ingest node processing but
             // also with IngestService.NOOP_PIPELINE_NAME on each request. This ensures that this on the second time through this method,
             // this path is never taken.
             try {
+                //看本节点是否是ingest节点
                 if (clusterService.localNode().isIngestNode()) {
+                    //ingest处理请求
                     processBulkIndexIngestRequest(task, bulkRequest, listener);
                 } else {
+                    //如果本节点不是ingest节点，应该是去找ingest节点去处理请求
                     ingestForwarder.forwardIngestRequest(BulkAction.INSTANCE, bulkRequest, listener);
                 }
             } catch (Exception e) {
@@ -220,6 +239,7 @@ public class TransportBulkAction extends HandledTransportAction<BulkRequest, Bul
             return;
         }
 
+        //判断是否可以自动创建索引
         if (needToCheck()) {
             // Attempt to create all the indices that we're going to need during the bulk before we start.
             // Step 1: collect all the indices in the request

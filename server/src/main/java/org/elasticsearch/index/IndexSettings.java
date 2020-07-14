@@ -287,6 +287,7 @@ public final class IndexSettings {
     public static final Setting<Integer> MAX_REGEX_LENGTH_SETTING = Setting.intSetting("index.max_regex_length",
         1000, 1, Property.Dynamic, Property.IndexScope);
 
+    //索引级别dynamic的，不能为空的一个设置
     public static final Setting<String> DEFAULT_PIPELINE =
        new Setting<>("index.default_pipeline", IngestService.NOOP_PIPELINE_NAME, s -> {
            if (s == null || s.isEmpty()) {
@@ -705,7 +706,7 @@ public final class IndexSettings {
     public void setTranslogSyncInterval(TimeValue translogSyncInterval) {
         this.syncInterval = translogSyncInterval;
     }
-    
+
     /**
      * Returns this interval in which the shards of this index are asynchronously refreshed. {@code -1} means async refresh is disabled.
      */
