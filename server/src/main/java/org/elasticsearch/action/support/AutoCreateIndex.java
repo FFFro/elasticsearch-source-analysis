@@ -67,10 +67,12 @@ public final class AutoCreateIndex {
      * @throws IndexNotFoundException if the index doesn't exist and shouldn't be auto created
      */
     public boolean shouldAutoCreate(String index, ClusterState state) {
+        //有别名或者索引则不需要创建索引
         if (resolver.hasIndexOrAlias(index, state)) {
             return false;
         }
         // One volatile read, so that all checks are done against the same instance:
+        //一次易读，以便针对同一实例执行所有检查
         final AutoCreate autoCreate = this.autoCreate;
         if (autoCreate.autoCreateIndex == false) {
             throw new IndexNotFoundException("[" + AUTO_CREATE_INDEX_SETTING.getKey() + "] is [false]", index);
