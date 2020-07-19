@@ -52,6 +52,7 @@ public abstract class TransportSingleItemBulkWriteAction<
         bulkAction.execute(task, toSingleItemBulkRequest(request), wrapBulkResponse(listener));
     }
 
+//    相应转换为Bulk的相应
     public static <Response extends ReplicationResponse & WriteResponse>
     ActionListener<BulkResponse> wrapBulkResponse(ActionListener<Response> listener) {
         return ActionListener.wrap(bulkItemResponses -> {
@@ -66,7 +67,9 @@ public abstract class TransportSingleItemBulkWriteAction<
         }, listener::onFailure);
     }
 
+//    请求转换为bulk的请求
     public static BulkRequest toSingleItemBulkRequest(ReplicatedWriteRequest<?> request) {
+//        将请求装换为只包含一个的请求的bulk操作
         BulkRequest bulkRequest = new BulkRequest();
         bulkRequest.add(((DocWriteRequest<?>) request));
         bulkRequest.setRefreshPolicy(request.getRefreshPolicy());

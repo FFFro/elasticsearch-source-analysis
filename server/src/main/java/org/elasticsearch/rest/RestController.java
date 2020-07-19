@@ -330,10 +330,12 @@ public class RestController implements HttpServerTransport.Dispatcher {
             return;
         }
 
+        // 获取所有注册handlers
         // Loop through all possible handlers, attempting to dispatch the request
         Iterator<MethodHandlers> allHandlers = getAllHandlers(request);
         for (Iterator<MethodHandlers> it = allHandlers; it.hasNext(); ) {
             final Optional<RestHandler> mHandler = Optional.ofNullable(it.next()).flatMap(mh -> mh.getHandler(request.method()));
+            // 分发请求
             requestHandled = dispatchRequest(request, channel, client, mHandler);
             if (requestHandled) {
                 break;
@@ -342,6 +344,7 @@ public class RestController implements HttpServerTransport.Dispatcher {
 
         // If request has not been handled, fallback to a bad request error.
         if (requestHandled == false) {
+            //如果分发失败则返回错误
             handleBadRequest(request, channel);
         }
     }

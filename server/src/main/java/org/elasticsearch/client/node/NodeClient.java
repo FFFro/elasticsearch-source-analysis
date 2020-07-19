@@ -108,9 +108,12 @@ public class NodeClient extends AbstractClient {
     private <    Request extends ActionRequest,
                 Response extends ActionResponse
             > TransportAction<Request, Response> transportAction(Action<Response> action) {
+        //判断客户端情况
         if (actions == null) {
             throw new IllegalStateException("NodeClient has not been initialized");
         }
+
+        // 使用注册到节点上的对应auction的TransportAction
         TransportAction<Request, Response> transportAction = actions.get(action);
         if (transportAction == null) {
             throw new IllegalStateException("failed to find action [" + action + "] to execute");

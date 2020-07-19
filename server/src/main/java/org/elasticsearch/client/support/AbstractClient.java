@@ -394,6 +394,7 @@ public abstract class AbstractClient implements Client {
         doExecute(action, request, listener);
     }
 
+//    这个应该是具体的NodeClient的实现去执行这个方法
     protected abstract <Request extends ActionRequest, Response extends ActionResponse>
     void doExecute(Action<Response> action, Request request, ActionListener<Response> listener);
 
@@ -403,6 +404,7 @@ public abstract class AbstractClient implements Client {
     }
 
     @Override
+//    执行index操作
     public void index(final IndexRequest request, final ActionListener<IndexResponse> listener) {
         execute(IndexAction.INSTANCE, request, listener);
     }

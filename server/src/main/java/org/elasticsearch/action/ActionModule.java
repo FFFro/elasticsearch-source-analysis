@@ -677,6 +677,7 @@ public class ActionModule extends AbstractModule {
         registerHandler.accept(new RestRepositoriesAction(settings, restController));
         registerHandler.accept(new RestSnapshotAction(settings, restController));
         registerHandler.accept(new RestTemplatesAction(settings, restController));
+        //注册插件集成的rest请求
         for (ActionPlugin plugin : actionPlugins) {
             for (RestHandler handler : plugin.getRestHandlers(settings, restController, clusterSettings, indexScopedSettings,
                     settingsFilter, indexNameExpressionResolver, nodesInCluster)) {

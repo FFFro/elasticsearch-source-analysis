@@ -48,15 +48,19 @@ public class RestIndexAction extends BaseRestHandler {
 
     public RestIndexAction(Settings settings, RestController controller) {
         super(settings);
+        //POST 不指定ID则会自动创建一个ID，自动创建ID的方法在下面会说
         controller.registerHandler(POST, "/{index}/_doc", this); // auto id creation
+        //使用POST 或者 PUT 指定ID去索引一个文档(_doc为默认的type)
         controller.registerHandler(PUT, "/{index}/_doc/{id}", this);
         controller.registerHandler(POST, "/{index}/_doc/{id}", this);
 
+        //使用create时，如果索引中已经存在具有该ID的文档，则索引操作将失败。
         CreateHandler createHandler = new CreateHandler(settings);
         controller.registerHandler(PUT, "/{index}/_create/{id}", createHandler);
         controller.registerHandler(POST, "/{index}/_create/{id}/", createHandler);
 
         // Deprecated typed endpoints.
+        // 使用自定义的type进行索引文档，将要在8.0后废除type
         controller.registerHandler(POST, "/{index}/{type}", this); // auto id creation
         controller.registerHandler(PUT, "/{index}/{type}/{id}", this);
         controller.registerHandler(POST, "/{index}/{type}/{id}", this);
@@ -96,14 +100,20 @@ public class RestIndexAction extends BaseRestHandler {
     @Override
     public RestChannelConsumer prepareRequest(final RestRequest request, final NodeClient client) throws IOException {
         IndexRequest indexRequest;
+//        获取操作的索引type
         final String type = request.param("type");
+//        如果不等于默认的_doc
         if (type != null && type.equals(MapperService.SINGLE_MAPPING_NAME) == false) {
+//            增加提示信息，表示type将要在8.0后废除
             deprecationLogger.deprecatedAndMaybeLog("index_with_types", TYPES_DEPRECATION_MESSAGE);
+//            构建一个IndexRequest  一个index请求的对象
             indexRequest = new IndexRequest(request.param("index"), type, request.param("id"));
         } else {
+            //使用这个没有标注要废弃的构造方法 不指定type
             indexRequest = new IndexRequest(request.param("index"));
             indexRequest.id(request.param("id"));
         }
+//        通过在请求中拿到参数值赋予请求对象，这些都是在url中后面带的参数
         indexRequest.routing(request.param("routing"));
         indexRequest.setPipeline(request.param("pipeline"));
         indexRequest.source(request.requiredContent(), request.getXContentType());
@@ -116,14 +126,22 @@ public class RestIndexAction extends BaseRestHandler {
         String sOpType = request.param("op_type");
         String waitForActiveShards = request.param("wait_for_active_shards");
         if (waitForActiveShards != null) {
+//            可以指定数字和_all
             indexRequest.waitForActiveShards(ActiveShardCount.parseString(waitForActiveShards));
         }
+//        设置操作类型
         if (sOpType != null) {
             indexRequest.opType(sOpType);
         }
 
+//        调用client index操作   这里的channel表示的是RestChannel
+//        REST请求是通过准备一个通道使用者来处理的，该使用者代表针对通道的请求执行情况
+//        定义了一个rest请求相关的监听器
         return channel ->
-                client.index(indexRequest, new RestStatusToXContentListener<>(channel, r -> r.getLocation(indexRequest.routing())));
+                client.index(
+                    indexRequest,
+                    new RestStatusToXContentListener<>(channel, r -> r.getLocation(indexRequest.routing()))
+                );
     }
 
 }

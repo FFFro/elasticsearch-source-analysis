@@ -86,6 +86,7 @@ public abstract class BaseRestHandler implements RestHandler {
      */
     public abstract String getName();
 
+    // 在这里执行具体handler的请求
     @Override
     public final void handleRequest(RestRequest request, RestChannel channel, NodeClient client) throws Exception {
         // prepare the request for execution; has the side effect of touching the request parameters
