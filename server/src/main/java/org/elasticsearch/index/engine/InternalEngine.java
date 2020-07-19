@@ -822,6 +822,7 @@ public class InternalEngine extends Engine {
         return engineConfig.getPrimaryTermSupplier().getAsLong();
     }
 
+    //最终要执行index操作的方法
     @Override
     public IndexResult index(Index index) throws IOException {
         assert Objects.equals(index.uid().field(), IdFieldMapper.NAME) : index.uid().field();
@@ -858,6 +859,7 @@ public class InternalEngine extends Engine {
                  *  if A arrives on the shard first we use addDocument since maxUnsafeAutoIdTimestamp is < 10. A` will then just be skipped
                  *  or calls updateDocument.
                  */
+                // 获取是主分片的策略还是副本分片的策略
                 final IndexingStrategy plan = indexingStrategyForOperation(index);
 
                 final IndexResult indexResult;
@@ -882,24 +884,29 @@ public class InternalEngine extends Engine {
                     assert index.seqNo() >= 0 : "ops should have an assigned seq no.; origin: " + index.origin();
 
                     if (plan.indexIntoLucene || plan.addStaleOpToLucene) {
+                        // 使用某个策略将索引写入lucene
                         indexResult = indexIntoLucene(index, plan);
                     } else {
                         indexResult = new IndexResult(
                             plan.versionForIndexing, getPrimaryTerm(), index.seqNo(), plan.currentNotFoundOrDeleted);
                     }
                 }
+                // 如果索引不是来自translog
                 if (index.origin().isFromTranslog() == false) {
                     final Translog.Location location;
                     if (indexResult.getResultType() == Result.Type.SUCCESS) {
+                        // Lucene写入成功则写translog
                         location = translog.add(new Translog.Index(index, indexResult));
                     } else if (indexResult.getSeqNo() != SequenceNumbers.UNASSIGNED_SEQ_NO) {
                         // if we have document failure, record it as a no-op in the translog and Lucene with the generated seq_no
+                        // 如果我们遇到文档失败的情况，则将其作为no-op记录在translog中，并将Lucene与生成的seq_no
                         final NoOp noOp = new NoOp(indexResult.getSeqNo(), index.primaryTerm(), index.origin(),
                             index.startTime(), indexResult.getFailure().toString());
                         location = innerNoOp(noOp).getTranslogLocation();
                     } else {
                         location = null;
                     }
+                    // 应该是记录下translog的位置
                     indexResult.setTranslogLocation(location);
                 }
                 if (plan.indexIntoLucene && indexResult.getResultType() == Result.Type.SUCCESS) {

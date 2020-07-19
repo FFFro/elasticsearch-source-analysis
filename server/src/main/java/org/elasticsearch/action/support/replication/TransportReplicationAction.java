@@ -147,9 +147,11 @@ public abstract class TransportReplicationAction<
 
         transportService.registerRequestHandler(actionName, ThreadPool.Names.SAME, requestReader, this::handleOperationRequest);
 
+        // 注册了执行主分片请求的handler
         transportService.registerRequestHandler(transportPrimaryAction, executor, forceExecutionOnPrimary, true,
             in -> new ConcreteShardRequest<>(requestReader, in), this::handlePrimaryRequest);
 
+        // 注册了执行副本分片请求的handler
         // we must never reject on because of thread pool capacity on replicas
         transportService.registerRequestHandler(transportReplicaAction, executor, true, true,
             in -> new ConcreteReplicaRequest<>(replicaRequestReader, in), this::handleReplicaRequest);
@@ -161,6 +163,7 @@ public abstract class TransportReplicationAction<
 
     @Override
     protected void doExecute(Task task, Request request, ActionListener<Response> listener) {
+        // 判断是否设置了shardId
         assert request.shardId() != null : "request shardId must be set";
         new ReroutePhase((ReplicationTask) task, request, listener).run();
     }
@@ -287,6 +290,7 @@ public abstract class TransportReplicationAction<
             this.replicationTask = replicationTask;
         }
 
+        // 在这个方法里面执行主分片的操作
         @Override
         protected void doRun() throws Exception {
             final ShardId shardId = primaryRequest.getRequest().shardId();
@@ -295,9 +299,12 @@ public abstract class TransportReplicationAction<
             // we may end up here if the cluster state used to route the primary is so stale that the underlying
             // index shard was replaced with a replica. For example - in a two node cluster, if the primary fails
             // the replica will take over and a replica will be assigned to the first node.
+            // 如果不是主分片则需要在主分片上再执行 例如节点挂掉导致部副本升为主分片
             if (shardRouting.primary() == false) {
                 throw new ReplicationOperation.RetryOnPrimaryException(shardId, "actual shard is not a primary " + shardRouting);
             }
+
+            // 判断主分片一些信息
             final String actualAllocationId = shardRouting.allocationId().getId();
             if (actualAllocationId.equals(primaryRequest.getTargetAllocationID()) == false) {
                 throw new ShardNotFoundException(shardId, "expected allocation id [{}] but found [{}]",
@@ -334,6 +341,7 @@ public abstract class TransportReplicationAction<
                     throw blockException;
                 }
 
+                // 查看主分片是否迁移
                 if (primaryShardReference.isRelocated()) {
                     primaryShardReference.close(); // release shard operation lock as soon as possible
                     setPhase(replicationTask, "primary_delegation");
@@ -348,6 +356,7 @@ public abstract class TransportReplicationAction<
                         return response;
                     };
                     DiscoveryNode relocatingNode = clusterState.nodes().get(primary.relocatingNodeId());
+                    // 拿到新的主分片信息后发送请求
                     transportService.sendRequest(relocatingNode, transportPrimaryAction,
                         new ConcreteShardRequest<>(primaryRequest.getRequest(), primary.allocationId().getRelocationId(),
                             primaryRequest.getPrimaryTerm()),
@@ -393,6 +402,7 @@ public abstract class TransportReplicationAction<
                         referenceClosingListener.onResponse(response);
                     }, referenceClosingListener::onFailure);
 
+                    // 执行入口
                     new ReplicationOperation<>(primaryRequest.getRequest(), primaryShardReference,
                         ActionListener.wrap(result -> result.respond(globalCheckpointSyncingListener), referenceClosingListener::onFailure),
                         newReplicasProxy(), logger, actionName, primaryRequest.getPrimaryTerm()).execute();
@@ -652,8 +662,11 @@ public abstract class TransportReplicationAction<
         @Override
         protected void doRun() {
             setPhase(task, "routing");
+            // 获取集群状态
             final ClusterState state = observer.setAndGetObservedState();
+            // 获取当前的索引
             final String concreteIndex = concreteIndex(state, request);
+            // 查看集群是否阻塞
             final ClusterBlockException blockException = blockExceptions(state, concreteIndex);
             if (blockException != null) {
                 if (blockException.retryable()) {
@@ -664,28 +677,36 @@ public abstract class TransportReplicationAction<
                 }
             } else {
                 // request does not have a shardId yet, we need to pass the concrete index to resolve shardId
+                // 获取索引信息
                 final IndexMetaData indexMetaData = state.metaData().index(concreteIndex);
+                // 查看索引信息是否存在
                 if (indexMetaData == null) {
                     retry(new IndexNotFoundException(concreteIndex));
                     return;
                 }
+                // 查看索引是否关闭状态
                 if (indexMetaData.getState() == IndexMetaData.State.CLOSE) {
                     throw new IndexClosedException(indexMetaData.getIndex());
                 }
 
                 // resolve all derived request fields, so we can route and apply it
+                // 设定执行需要存在的分片数
                 resolveRequest(indexMetaData, request);
                 assert request.waitForActiveShards() != ActiveShardCount.DEFAULT :
                     "request waitForActiveShards must be set in resolveRequest";
 
+                // 查看分片的主分片信息
                 final ShardRouting primary = primary(state);
                 if (retryIfUnavailable(state, primary)) {
                     return;
                 }
+                // 获取主分片上所在的节点信息
                 final DiscoveryNode node = state.nodes().get(primary.currentNodeId());
+                // 如果主分片在本地，则执行本地的方法
                 if (primary.currentNodeId().equals(state.nodes().getLocalNodeId())) {
                     performLocalAction(state, primary, node, indexMetaData);
                 } else {
+                    // 如果主分片不再本地，则调用远程的方法
                     performRemoteAction(state, primary, node);
                 }
             }
@@ -790,6 +811,7 @@ public abstract class TransportReplicationAction<
         void retry(Exception failure) {
             assert failure != null;
             if (observer.isTimedOut()) {
+                // 超时则返回失败
                 // we running as a last attempt after a timeout has happened. don't retry
                 finishAsFailed(failure);
                 return;
@@ -797,6 +819,7 @@ public abstract class TransportReplicationAction<
             setPhase(task, "waiting_for_retry");
             request.onRetry();
             observer.waitForNextChange(new ClusterStateObserver.Listener() {
+                // 获取最新的集群信息
                 @Override
                 public void onNewClusterState(ClusterState state) {
                     run();
@@ -809,6 +832,7 @@ public abstract class TransportReplicationAction<
 
                 @Override
                 public void onTimeout(TimeValue timeout) {
+                    // 超时则做最后一次尝试
                     // Try one more time...
                     run();
                 }
@@ -924,6 +948,7 @@ public abstract class TransportReplicationAction<
                 });
             }
             assert indexShard.getActiveOperationsCount() != 0 : "must perform shard operation under a permit";
+            // 执行具体请求中的方法
             shardOperationOnPrimary(request, indexShard, listener);
         }
 
@@ -1225,6 +1250,7 @@ public abstract class TransportReplicationAction<
     /**
      * Sets the current phase on the task if it isn't null. Pulled into its own
      * method because its more convenient that way.
+     * 如果当前阶段不为空，则设置该阶段。拉入自己的*方法，因为这样更方便
      */
     static void setPhase(ReplicationTask task, String phase) {
         if (task != null) {

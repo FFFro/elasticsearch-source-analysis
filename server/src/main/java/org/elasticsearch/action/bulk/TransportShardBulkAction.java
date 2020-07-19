@@ -109,6 +109,7 @@ public class TransportShardBulkAction extends TransportWriteAction<BulkShardRequ
         return false;
     }
 
+    // 具体执行bulk写入主分片的方法
     @Override
     protected void shardOperationOnPrimary(BulkShardRequest request, IndexShard primary,
             ActionListener<PrimaryResult<BulkShardRequest, BulkShardResponse>> listener) {
@@ -117,6 +118,7 @@ public class TransportShardBulkAction extends TransportWriteAction<BulkShardRequ
             (update, shardId, type, mappingListener) -> {
                 assert update != null;
                 assert shardId != null;
+                // 更新mapping
                 mappingUpdatedAction.updateMappingOnMaster(shardId.getIndex(), type, update, mappingListener);
             },
             mappingUpdateListener -> observer.waitForNextChange(new ClusterStateObserver.Listener() {
@@ -248,10 +250,12 @@ public class TransportShardBulkAction extends TransportWriteAction<BulkShardRequ
         final boolean isDelete = context.getRequestToExecute().opType() == DocWriteRequest.OpType.DELETE;
         final Engine.Result result;
         if (isDelete) {
+            // DELETE 请求
             final DeleteRequest request = context.getRequestToExecute();
             result = primary.applyDeleteOperationOnPrimary(version, request.type(), request.id(), request.versionType(),
                 request.ifSeqNo(), request.ifPrimaryTerm());
         } else {
+            // Index 请求
             final IndexRequest request = context.getRequestToExecute();
             result = primary.applyIndexOperationOnPrimary(version, request.versionType(), new SourceToParse(
                     request.index(), request.type(), request.id(), request.source(), request.getContentType(), request.routing()),

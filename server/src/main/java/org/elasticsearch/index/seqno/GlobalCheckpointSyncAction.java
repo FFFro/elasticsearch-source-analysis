@@ -105,6 +105,7 @@ public class GlobalCheckpointSyncAction extends TransportReplicationAction<
     protected void shardOperationOnPrimary(Request request, IndexShard indexShard,
                                            ActionListener<PrimaryResult<Request, ReplicationResponse>> listener) {
         ActionListener.completeWith(listener, () -> {
+            // translog flush
             maybeSyncTranslog(indexShard);
             return new PrimaryResult<>(request, new ReplicationResponse());
         });

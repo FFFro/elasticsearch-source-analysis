@@ -753,6 +753,7 @@ public class IndexShard extends AbstractIndexShardComponent implements IndicesCl
             return new Engine.IndexResult(e, version, opPrimaryTerm, seqNo);
         }
 
+        // 在这里执行index请求
         return index(engine, operation);
     }
 

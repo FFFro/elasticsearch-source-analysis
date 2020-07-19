@@ -485,6 +485,7 @@ public class TransportBulkAction extends HandledTransportAction<BulkRequest, Bul
                     bulkShardRequest.setParentTask(nodeId, task.getId());
                 }
                 // 去分片上执行操作
+                // org.elasticsearch.action.support.replication.TransportReplicationAction 执行doExecute这个方法
                 shardBulkAction.execute(bulkShardRequest, new ActionListener<BulkShardResponse>() {
                     @Override
                     public void onResponse(BulkShardResponse bulkShardResponse) {

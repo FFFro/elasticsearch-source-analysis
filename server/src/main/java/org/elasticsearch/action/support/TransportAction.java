@@ -140,8 +140,10 @@ public abstract class TransportAction<Request extends ActionRequest, Response ex
             int i = index.getAndIncrement();
             try {
                 if (i < this.action.filters.length) {
+                    //  执行插件逻辑
                     this.action.filters[i].apply(task, actionName, request, listener, this);
                 } else if (i == this.action.filters.length) {
+                    // 执行action的逻辑
                     this.action.doExecute(task, request, listener);
                 } else {
                     listener.onFailure(new IllegalStateException("proceed was called too many times"));
