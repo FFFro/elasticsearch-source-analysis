@@ -601,6 +601,7 @@ public class InternalEngine extends Engine {
     }
 
     @Override
+    // 读取文档的具体流程
     public GetResult get(Get get, BiFunction<String, SearcherScope, Searcher> searcherFactory) throws EngineException {
         assert Objects.equals(get.uid().field(), IdFieldMapper.NAME) : get.uid().field();
         try (ReleasableLock ignored = readLock.acquire()) {
@@ -658,6 +659,7 @@ public class InternalEngine extends Engine {
             }
 
             // no version, get the version from the index, we know that we refresh on flush
+            // 调用searcher读取数据
             return getFromSearcher(get, searcherFactory, scope);
         }
     }

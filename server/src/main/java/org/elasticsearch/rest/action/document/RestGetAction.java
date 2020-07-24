@@ -48,6 +48,7 @@ public class RestGetAction extends BaseRestHandler {
     public static final String TYPES_DEPRECATION_MESSAGE = "[types removal] Specifying types in " +
         "document get requests is deprecated, use the /{index}/_doc/{id} endpoint instead.";
 
+    //注册get请求handler
     public RestGetAction(final Settings settings, final RestController controller) {
         super(settings);
         controller.registerHandler(GET, "/{index}/_doc/{id}", this);
@@ -66,6 +67,8 @@ public class RestGetAction extends BaseRestHandler {
     @Override
     public RestChannelConsumer prepareRequest(final RestRequest request, final NodeClient client) throws IOException {
         GetRequest getRequest;
+        // 如果有type,则提示
+        //构造一个get请求
         if (request.hasParam("type")) {
             deprecationLogger.deprecatedAndMaybeLog("get_with_types", TYPES_DEPRECATION_MESSAGE);
             getRequest = new GetRequest(request.param("index"), request.param("type"), request.param("id"));
@@ -73,14 +76,17 @@ public class RestGetAction extends BaseRestHandler {
             getRequest = new GetRequest(request.param("index"), request.param("id"));
         }
 
+        // 判断是否refresh routing等
         getRequest.refresh(request.paramAsBoolean("refresh", getRequest.refresh()));
         getRequest.routing(request.param("routing"));
         getRequest.preference(request.param("preference"));
         getRequest.realtime(request.paramAsBoolean("realtime", getRequest.realtime()));
+        // 不支持指定fields；需要使用stored_fields
         if (request.param("fields") != null) {
             throw new IllegalArgumentException("the parameter [fields] is no longer supported, " +
                 "please use [stored_fields] to retrieve stored fields or [_source] to load the field from _source");
         }
+        // 获取store_field
         final String fieldsParam = request.param("stored_fields");
         if (fieldsParam != null) {
             final String[] fields = Strings.splitStringByCommaToArray(fieldsParam);
@@ -92,6 +98,7 @@ public class RestGetAction extends BaseRestHandler {
         getRequest.version(RestActions.parseVersion(request));
         getRequest.versionType(VersionType.fromString(request.param("version_type"), getRequest.versionType()));
 
+        //是否排除一些字段或者包含一些字段
         getRequest.fetchSourceContext(FetchSourceContext.parseFromRestRequest(request));
 
         return channel -> client.get(getRequest, new RestToXContentListener<GetResponse>(channel) {

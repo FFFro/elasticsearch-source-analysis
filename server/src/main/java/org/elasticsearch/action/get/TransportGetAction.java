@@ -50,6 +50,7 @@ public class TransportGetAction extends TransportSingleShardAction<GetRequest, G
     public TransportGetAction(ClusterService clusterService, TransportService transportService,
                               IndicesService indicesService, ThreadPool threadPool, ActionFilters actionFilters,
                               IndexNameExpressionResolver indexNameExpressionResolver) {
+        // 去父类注册具体执行的方法
         super(GetAction.NAME, threadPool, clusterService, transportService, actionFilters, indexNameExpressionResolver,
                 GetRequest::new, ThreadPool.Names.GET);
         this.indicesService = indicesService;
@@ -60,6 +61,7 @@ public class TransportGetAction extends TransportSingleShardAction<GetRequest, G
         return true;
     }
 
+    // 获取分片信息
     @Override
     protected ShardIterator shards(ClusterState state, InternalRequest request) {
         return clusterService.operationRouting()

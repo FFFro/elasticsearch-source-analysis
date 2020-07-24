@@ -605,6 +605,7 @@ public class TransportService extends AbstractLifecycleComponent implements Tran
 
     }
 
+    // 向连接发送请求
     private <T extends TransportResponse> void sendRequestInternal(final Transport.Connection connection, final String action,
                                                                    final TransportRequest request,
                                                                    final TransportRequestOptions options,
@@ -612,6 +613,7 @@ public class TransportService extends AbstractLifecycleComponent implements Tran
         if (connection == null) {
             throw new IllegalStateException("can't send request to a null connection");
         }
+        //
         DiscoveryNode node = connection.getNode();
 
         Supplier<ThreadContext.StoredContext> storedContextSupplier = threadPool.getThreadContext().newRestorableContext(true);

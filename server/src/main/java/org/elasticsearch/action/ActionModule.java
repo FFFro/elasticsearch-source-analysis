@@ -492,6 +492,7 @@ public class ActionModule extends AbstractModule {
         actions.register(GetSettingsAction.INSTANCE, TransportGetSettingsAction.class);
 
         actions.register(IndexAction.INSTANCE, TransportIndexAction.class);
+        // 注册get请求具体实现的Action
         actions.register(GetAction.INSTANCE, TransportGetAction.class);
         actions.register(TermVectorsAction.INSTANCE, TransportTermVectorsAction.class);
         actions.register(MultiTermVectorsAction.INSTANCE, TransportMultiTermVectorsAction.class,

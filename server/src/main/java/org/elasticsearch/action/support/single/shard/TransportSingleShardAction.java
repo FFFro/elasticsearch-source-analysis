@@ -180,6 +180,7 @@ public abstract class TransportSingleShardAction<Request extends SingleShardRequ
             if (shardIt == null) {
                 // just execute it on the local node
                 final Writeable.Reader<Response> reader = getResponseReader();
+                // 没有找到shard将请求发向本地
                 transportService.sendRequest(clusterService.localNode(), transportShardAction, internalRequest.request(),
                     new TransportResponseHandler<Response>() {
                     @Override
@@ -221,6 +222,7 @@ public abstract class TransportSingleShardAction<Request extends SingleShardRequ
                 lastFailure = currentFailure;
                 this.lastFailure = currentFailure;
             }
+            // 获取routing   失败了会使用下一个分片去请求结果
             final ShardRouting shardRouting = shardIt.nextOrNull();
             if (shardRouting == null) {
                 Exception failure = lastFailure;
@@ -234,6 +236,7 @@ public abstract class TransportSingleShardAction<Request extends SingleShardRequ
                 listener.onFailure(failure);
                 return;
             }
+            // 获取routing所在的节点
             DiscoveryNode node = nodes.get(shardRouting.currentNodeId());
             if (node == null) {
                 onFailure(shardRouting, new NoShardAvailableActionException(shardRouting.shardId()));
@@ -275,15 +278,18 @@ public abstract class TransportSingleShardAction<Request extends SingleShardRequ
         }
     }
 
+    // actionName执行的方法（transportClient 直接调用。也会走到下面）
     private class TransportHandler implements TransportRequestHandler<Request> {
 
         @Override
         public void messageReceived(Request request, final TransportChannel channel, Task task) throws Exception {
             // if we have a local operation, execute it on a thread since we don't spawn
+            // 如果我们有本地操作，请在线程上执行它，因为我们不会生成
             execute(request, new ChannelActionListener<>(channel, actionName, request));
         }
     }
 
+    // action[s]执行的方法
     private class ShardTransportHandler implements TransportRequestHandler<Request> {
 
         @Override
